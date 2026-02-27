@@ -5,13 +5,13 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from './db';
 import { config } from './config';
-import { grantTokens, makeSystemInitiator, TOKEN_TRANSACTION_TYPES } from './tokens';
 import { notifyAdminsOfNewUser } from './telegram';
-import { TOKEN_COSTS } from '@/shared/constants/token-costs';
 import { createAppleClientSecret } from '@/server/apple/client-secret';
 import { reactivateDeletedUser } from '@/server/account/reactivate-user';
+import { grantConfiguredSignUpBonus } from '@/server/account/sign-up-bonus';
 import { cookies } from 'next/headers';
 import { readUtmSourceCookie, UTM_SOURCE_COOKIE_NAME } from '@/shared/utm/helpers';
+import { APP_LANGUAGE_HINT_COOKIE_NAME, readAppLanguageHintCookie } from '@/shared/constants/app-language';
 
 const oauthProviders = [];
 const enabledProviderIds = new Set<string>();
@@ -167,20 +167,18 @@ export const authOptions: NextAuthOptions = {
     async createUser({ user }) {
       if (!user?.id) return;
       const utmSource = await readUtmSourceCookieFromRequest();
-      const bonusAmount = TOKEN_COSTS.signUpBonus;
-      if (bonusAmount > 0) {
-        try {
-          await grantTokens({
-            userId: user.id,
-            amount: bonusAmount,
-            type: TOKEN_TRANSACTION_TYPES.signUpBonus,
-            description: 'New account bonus',
-            initiator: makeSystemInitiator('signup'),
-          });
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error('Failed to grant signup tokens', e);
-        }
+      const languageContext = await readSignUpLanguageContextFromRequest();
+      try {
+        await grantConfiguredSignUpBonus({
+          userId: user.id,
+          initiatorTag: 'signup',
+          preferredLanguage: (user as any).preferredLanguage,
+          languageHint: languageContext.languageHint,
+          callbackUrl: languageContext.callbackUrl,
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to grant signup tokens', e);
       }
       notifyAdminsOfNewUser({
         userId: user.id,
@@ -210,6 +208,21 @@ async function readUtmSourceCookieFromRequest() {
     return readUtmSourceCookie(value);
   } catch {
     return null;
+  }
+}
+
+async function readSignUpLanguageContextFromRequest() {
+  try {
+    const cookieStore = await cookies();
+    const languageHint = readAppLanguageHintCookie(
+      cookieStore.get(APP_LANGUAGE_HINT_COOKIE_NAME)?.value,
+    );
+    const callbackUrl = cookieStore.get('__Secure-next-auth.callback-url')?.value
+      ?? cookieStore.get('next-auth.callback-url')?.value
+      ?? null;
+    return { languageHint, callbackUrl };
+  } catch {
+    return { languageHint: null, callbackUrl: null };
   }
 }
 

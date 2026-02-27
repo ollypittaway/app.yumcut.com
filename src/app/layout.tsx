@@ -38,6 +38,15 @@ const SKIP_BUILD_PRERENDER =
   (process.env.DATABASE_URL || '').includes('placeholder') ||
   IS_BUILD_PHASE;
 
+const DEFAULT_PROJECT_CREATION_SETTINGS: import('@/server/admin/project-creation').ProjectCreationSettings = {
+  enabled: true,
+  disabledReason: '',
+  signUpBonusByLanguage: {
+    en: { enabled: false, amount: TOKEN_COSTS.signUpBonus },
+    ru: { enabled: false, amount: TOKEN_COSTS.signUpBonus },
+  },
+};
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -183,8 +192,8 @@ export default async function RootLayout({
 }>) {
   const defaultVoiceId = SKIP_BUILD_PRERENDER ? null : await getDefaultVoiceExternalId();
   const projectCreationSettings = SKIP_BUILD_PRERENDER
-    ? { enabled: true, disabledReason: '' }
-    : await getProjectCreationSettings().catch(() => ({ enabled: true, disabledReason: '' }));
+    ? DEFAULT_PROJECT_CREATION_SETTINGS
+    : await getProjectCreationSettings().catch(() => DEFAULT_PROJECT_CREATION_SETTINGS);
 
   const defaultScheduler = ensureSchedulerPreferences();
   const makeDefaultSettings = (sidebarOpen: boolean): import('@/shared/types').UserSettingsDTO => ({

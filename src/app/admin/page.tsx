@@ -496,6 +496,7 @@ export default async function AdminHomePage() {
               initial={{
                 projectCreationEnabled: projectCreationSettings.enabled,
                 projectCreationDisabledReason: projectCreationSettings.disabledReason,
+                signUpBonusByLanguage: projectCreationSettings.signUpBonusByLanguage,
               }}
             />
           </div>

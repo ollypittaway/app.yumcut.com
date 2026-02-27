@@ -1,9 +1,8 @@
 import { Prisma, User } from '@prisma/client';
 import { prisma } from '@/server/db';
-import { grantTokens, makeSystemInitiator, TOKEN_TRANSACTION_TYPES } from '@/server/tokens';
 import { notifyAdminsOfNewUser } from '@/server/telegram';
-import { TOKEN_COSTS } from '@/shared/constants/token-costs';
 import { reactivateDeletedUser } from '@/server/account/reactivate-user';
+import { grantConfiguredSignUpBonus } from '@/server/account/sign-up-bonus';
 
 export type OAuthProfile = {
   providerAccountId: string;
@@ -133,20 +132,15 @@ function resolveEmailVerified(value: OAuthProfile['emailVerified']) {
   return undefined;
 }
 
-async function afterUserCreated(user: { id: string; email: string }, name?: string | null) {
-  const bonusAmount = TOKEN_COSTS.signUpBonus;
-  if (bonusAmount > 0) {
-    try {
-      await grantTokens({
-        userId: user.id,
-        amount: bonusAmount,
-        type: TOKEN_TRANSACTION_TYPES.signUpBonus,
-        description: 'New account bonus',
-        initiator: makeSystemInitiator('signup-mobile'),
-      });
-    } catch (err) {
-      console.error('Failed to grant signup tokens (mobile auth)', err);
-    }
+async function afterUserCreated(user: { id: string; email: string; preferredLanguage?: string | null }, name?: string | null) {
+  try {
+    await grantConfiguredSignUpBonus({
+      userId: user.id,
+      initiatorTag: 'signup-mobile',
+      preferredLanguage: user.preferredLanguage,
+    });
+  } catch (err) {
+    console.error('Failed to grant signup tokens (mobile auth)', err);
   }
   notifyAdminsOfNewUser({ userId: user.id, email: user.email, name }).catch((err) => {
     console.error('Failed to notify admins about new mobile user', err);

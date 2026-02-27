@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   APP_LANGUAGE_STORAGE_KEY,
   DEFAULT_APP_LANGUAGE,
+  detectAppLanguageFromSearchString,
   type AppLanguageCode,
   parseAppLanguage,
 } from '@/shared/constants/app-language';
@@ -42,7 +43,7 @@ export function AppLanguageProvider({
 
   useEffect(() => {
     const queryLanguage = typeof window !== 'undefined'
-      ? parseAppLanguage(new URLSearchParams(window.location.search).get('lang'))
+      ? detectAppLanguageFromSearchString(window.location.search)
       : null;
     if (queryLanguage) {
       setLanguage(queryLanguage);

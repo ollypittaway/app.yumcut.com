@@ -166,6 +166,10 @@ export interface AdminImageEditorSettingsDTO {
 export interface AdminProjectCreationSettingsDTO {
   projectCreationEnabled: boolean;
   projectCreationDisabledReason: string;
+  signUpBonusByLanguage: {
+    en: { enabled: boolean; amount: number };
+    ru: { enabled: boolean; amount: number };
+  };
 }
 
 export interface ProjectDetailDTO {
