@@ -7,11 +7,14 @@ services:
     restart: always
     environment:
       MYSQL_DATABASE: yumcut
-      MYSQL_ROOT_PASSWORD: STRONG_ROOT_PASSWORD
+      # Root password for system-level changes
+      MYSQL_ROOT_PASSWORD: "K9x#vL2p9Z!mQ8R4tT7y*BvWn"
+      # Dedicated app user
       MYSQL_USER: yumcut
-      MYSQL_PASSWORD: STRONG_PASSWORD
+      MYSQL_PASSWORD: "aG5^mN1jS9#dL4qP2zWk*Xr8T"
     ports:
-      - "3306:3306"
+      # Map Host 8082 to Container 3306
+      - "8082:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -25,12 +28,11 @@ services:
     container_name: yumcut_app
     restart: always
     ports:
-      - "3000:3000"
-    env_file:
-      - .env
+      # Map Host 8083 to Container 3000
+      - "8083:3000"
     environment:
-      # Use the service name 'db' as the hostname
-      DATABASE_URL: "mysql://yumcut:STRONG_PASSWORD@db:3306/yumcut"
+      # Internal networking: Host is 'db', Port is '3306' (Internal)
+      DATABASE_URL: "mysql://yumcut:aG5^mN1jS9#dL4qP2zWk*Xr8T@db:3306/yumcut"
     depends_on:
       db:
         condition: service_healthy
