@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8
+    container_name: yumcut_db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-yumcut}
+      MYSQL_USER: ${MYSQL_USER:-yumcut}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      # Maps the database storage to a configurable host path or named volume
+      - "${DB_DATA_PATH:-yumcut_mysql_data}:/var/lib/mysql"
+    ports:
+      - "${DB_PORT:-3306}:3306"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yumcut_web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - SERVICE_API_PASSWORD=${SERVICE_API_PASSWORD}
+      - DAEMON_API_PASSWORD=${DAEMON_API_PASSWORD}
+      - MEDIA_ROOT=${MEDIA_ROOT:-/app/media}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
+    volumes:
+      # Maps the media storage to a configurable host path
+      - "${MEDIA_DATA_PATH:-yumcut_shared_media}:/app/media"
+    depends_on:
+      - db
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+  daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yumcut_daemon
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SERVICE_API_PASSWORD=${SERVICE_API_PASSWORD}
+      - DAEMON_API_PASSWORD=${DAEMON_API_PASSWORD}
+      - MEDIA_ROOT=${MEDIA_ROOT:-/app/media}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      # Crucial: Must use the exact same variable as the web container so they share files
+      - "${MEDIA_DATA_PATH:-yumcut_shared_media}:/app/media"
+    depends_on:
+      - db
+    command: npm run daemon
+
+volumes:
+  # These act as fallbacks if you don't define custom host paths in Portainer
+  yumcut_mysql_data:
+  yumcut_shared_media:
