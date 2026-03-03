@@ -10,6 +10,10 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
+# Force Git to use HTTPS over SSH to prevent npm ci exit code 128
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:"
+RUN git config --global url."https://".insteadOf "git://"
+
 # Install dependencies
 RUN npm ci
 
