@@ -1,7 +1,7 @@
-# Stage 1: Dependencies and Build
+# Stage 1: Builder
 FROM node:20-alpine AS builder
 
-# Install system dependencies required for video processing and Prisma
+# Install system dependencies
 RUN apk add --no-cache ffmpeg openssl libc6-compat git python3 make g++
 
 WORKDIR /app
@@ -10,32 +10,34 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
-# Install dependencies (using clean install)
+# Install dependencies
 RUN npm ci
 
-# Copy the rest of the application code
+# Copy source code and build
 COPY . .
-
-# Generate Prisma Client and build the Next.js app
 RUN npx prisma generate
 RUN npm run build
 
-# Stage 2: Production Runner
+# Stage 2: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Re-install runtime system dependencies
-RUN apk add --no-cache ffmpeg openssl
+# Re-install runtime system dependencies (ffmpeg is crucial for YumCut)
+RUN apk add --no-cache ffmpeg openssl bash
 
 ENV NODE_ENV=production
 
-# Copy necessary files from the builder stage
+# Copy built assets and dependencies from builder
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/next.config.* ./
+
+# Create the media directory
+RUN mkdir -p /app/media
 
 EXPOSE 3000
 
