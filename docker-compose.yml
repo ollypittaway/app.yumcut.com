@@ -2,66 +2,38 @@ version: '3.8'
 
 services:
   db:
-    image: mysql:8
+    image: mysql:8.0
     container_name: yumcut_db
-    restart: unless-stopped
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-yumcut}
-      MYSQL_USER: ${MYSQL_USER:-yumcut}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      # Maps the database storage to a configurable host path or named volume
-      - "${DB_DATA_PATH:-yumcut_mysql_data}:/var/lib/mysql"
+      MYSQL_DATABASE: yumcut
+      MYSQL_ROOT_PASSWORD: STRONG_ROOT_PASSWORD
+      MYSQL_USER: yumcut
+      MYSQL_PASSWORD: STRONG_PASSWORD
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: yumcut_web
-    restart: unless-stopped
+  app:
+    build: .
+    container_name: yumcut_app
+    restart: always
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - SERVICE_API_PASSWORD=${SERVICE_API_PASSWORD}
-      - DAEMON_API_PASSWORD=${DAEMON_API_PASSWORD}
-      - MEDIA_ROOT=${MEDIA_ROOT:-/app/media}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
-      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
-    volumes:
-      # Maps the media storage to a configurable host path
-      - "${MEDIA_DATA_PATH:-yumcut_shared_media}:/app/media"
+      # Use the service name 'db' as the hostname
+      DATABASE_URL: "mysql://yumcut:STRONG_PASSWORD@db:3306/yumcut"
     depends_on:
-      - db
-    command: sh -c "npx prisma migrate deploy && npm start"
-
-  daemon:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: yumcut_daemon
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - SERVICE_API_PASSWORD=${SERVICE_API_PASSWORD}
-      - DAEMON_API_PASSWORD=${DAEMON_API_PASSWORD}
-      - MEDIA_ROOT=${MEDIA_ROOT:-/app/media}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-    volumes:
-      # Crucial: Must use the exact same variable as the web container so they share files
-      - "${MEDIA_DATA_PATH:-yumcut_shared_media}:/app/media"
-    depends_on:
-      - db
-    command: npm run daemon
+      db:
+        condition: service_healthy
 
 volumes:
-  # These act as fallbacks if you don't define custom host paths in Portainer
-  yumcut_mysql_data:
-  yumcut_shared_media:
+  mysql_data:
